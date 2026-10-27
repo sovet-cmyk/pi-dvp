@@ -1,0 +1,5 @@
+# GUI OpenCV, NumPy, SMBus and GPIO support come from apt for ABI/hardware compatibility.
+# This ONNX Runtime version was used for the packaged software tests.
+onnxruntime==1.30.0
+# Retained for the optional TOUCH_MODE=serial diagnostic fallback.
+pyserial==3.5

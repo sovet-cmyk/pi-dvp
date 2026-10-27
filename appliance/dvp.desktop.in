@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=DVP Kiosk
+Comment=Dedicated Digital View Port interface
+Exec=@DVP_ROOT@/start_kiosk.sh
+TryExec=@DVP_ROOT@/start_kiosk.sh
+Type=Application
+DesktopNames=DVP
