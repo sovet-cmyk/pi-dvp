@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 import cv2
 if __name__ == '__main__' and '--demo' in sys.argv and not os.environ.get('DVP_DATA_DIR'):
     os.environ['DVP_DATA_DIR'] = tempfile.mkdtemp(prefix='dvp-demo-')
@@ -44,6 +45,12 @@ def main():
     parser.add_argument('--seconds',type=float,default=0,help='Stop after this many seconds (0 runs until exit)')
     parser.add_argument('--snapshot',help='Save last rendered frame as PNG when exiting')
     args=parser.parse_args()
+    runtime_dir=Path(os.environ.get('XDG_RUNTIME_DIR',f'/run/user/{os.getuid()}'))
+    poweroff_marker=runtime_dir/'dvp-poweroff-requested'
+    try:
+        poweroff_marker.unlink(missing_ok=True)
+    except OSError:
+        pass
     if args.demo:
         config.AUTO_DELETE_OLDEST=False
     cv2.setNumThreads(1)
@@ -112,8 +119,16 @@ def main():
     if state.shutdown_requested and config.ALLOW_SYSTEM_POWEROFF and not args.demo:
         if not safe:
             raise SystemExit('Poweroff cancelled: recording/export did not close cleanly; inspect data/logs')
+        try:
+            poweroff_marker.touch(exist_ok=True)
+        except OSError as exc:
+            logger.warning('Could not create poweroff marker: %s',exc)
         result=subprocess.run(['systemctl','poweroff'],capture_output=True,text=True,timeout=10)
         if result.returncode:
+            try:
+                poweroff_marker.unlink(missing_ok=True)
+            except OSError:
+                pass
             raise SystemExit('Poweroff failed: '+result.stderr.strip())
 
 if __name__=='__main__':

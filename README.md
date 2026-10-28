@@ -1,11 +1,11 @@
 # DVP V3 Processing Unit
 
-Version **3.2.5** — 27 October 2026
+Version **3.2.7** — 27 October 2026
 
 This repository is the complete processing-unit package for DVP V3. It provides
 the live camera interface, raw/UI recording, motion detection, human detection,
 wireless touch reception, automatic USB export, battery bars, coordinated
-shutdown, and a dedicated appliance boot session.
+shutdown, and desktop-backed appliance autostart.
 
 The supported hardware image is Raspberry Pi OS 64-bit with Desktop on a
 Raspberry Pi 5. Those platform names are retained here for installation and
@@ -30,6 +30,9 @@ shutdown surfaces use DVP naming only.
   Diagnostic telemetry is retained in logs, not drawn on screen.
 - Confirming `PWR` displays `SHUT DOWN DVP?`, requests shutdown of the touch
   interface, closes recordings/exports, and then powers down the processing unit.
+- DVP starts at the beginning of the graphical session, before the wallpaper,
+  panel, and other desktop components. This prevents a desktop flash at boot.
+  Pressing Esc exits DVP once and lets the maintenance desktop finish starting.
 
 ## Fresh installation from GitHub
 
@@ -53,18 +56,19 @@ may disconnect normally. Then reboot locally:
 sudo reboot
 ```
 
-The setup installs dependencies, enables I2C, creates the dedicated DVP display
-session and autologin, starts the hotspot before the UI, uses the neutral hostname
-`dvp-processing`, suppresses routine boot text, and preserves recovery copies of
-every boot/display file it changes.
+The setup installs dependencies, enables I2C, enables desktop autologin, starts
+DVP once at the earliest labwc startup stage, starts the hotspot before the UI,
+uses the neutral hostname `dvp-processing`, suppresses routine boot text, and
+preserves recovery copies of every boot/display file it changes.
 
-The dedicated display session remains active when the camera is absent. It shows
-`CAMERA DISCONNECTED`, retries the camera automatically, and keeps the login
-greeter hidden. If the interface itself exits unexpectedly, the kiosk supervisor
-records the reason and restarts it after two seconds. Maintenance output is in:
+DVP remains open when the camera is absent. It shows `CAMERA DISCONNECTED` and
+retries the camera automatically. Pressing Esc is a deliberate clean exit and
+allows the maintenance desktop to start; DVP is not relaunched. A power-button
+shutdown marker prevents the desktop from appearing during shutdown. Application
+output is in:
 
 ```bash
-tail -n 80 ~/dvp/data/logs/kiosk.log
+tail -n 80 ~/dvp/data/logs/dvp.log
 ```
 
 For an existing clone:
@@ -288,7 +292,8 @@ systemctl status dvp-hotspot.service --no-pager
 The bundled Wi-Fi passwords and touch keys are public bench credentials. Use
 the custom `setup_appliance.sh` form above on both sides before production.
 
-Restore the maintenance desktop if required:
+Press Esc to leave DVP and start the maintenance desktop. To disable DVP startup
+and restore all saved pre-appliance boot/network settings:
 
 ```bash
 cd ~/dvp
@@ -296,11 +301,13 @@ cd ~/dvp
 sudo reboot
 ```
 
-The appliance removes routine boot text, vendor splash, desktop, board-named
-shutdown text, board-named hostnames, and board-named service descriptions. This
-is presentation control, not a security boundary: shell/root access, repository
-access, or physical inspection can still identify the platform. Third-party
-license and attribution files remain intact.
+The appliance removes routine boot text, vendor splash, board-named shutdown
+text, board-named hostnames, and board-named service descriptions. The desktop
+does not start until the full-screen DVP interface exits with Esc. This is
+presentation control, not a security boundary: shell/root
+access, repository access, the maintenance desktop, or physical inspection can
+still identify the platform. Third-party license and attribution files remain
+intact.
 
 Run the software checks after installation:
 

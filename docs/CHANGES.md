@@ -1,5 +1,26 @@
 # Review of the uploaded source
 
+## 27 October 2026 — processing unit 3.2.7
+
+- Moved DVP from late XDG desktop autostart to the beginning of labwc system
+  autostart, in the foreground, so the wallpaper and panel cannot flash first.
+- Esc now allows the saved desktop autostart sequence to continue; it still does
+  not restart DVP.
+- Added a runtime poweroff marker so confirmed shutdown does not briefly start
+  the desktop after the DVP window closes.
+- Added backup and restoration of the original labwc system autostart file.
+
+## 27 October 2026 — processing unit 3.2.6
+
+- Restored the proven desktop-backed startup arrangement: the normal maintenance
+  desktop autologs in and launches DVP once through XDG autostart.
+- Esc now exits DVP and reveals the already-running desktop instead of being
+  interpreted by the kiosk supervisor as a reason to relaunch the interface.
+- Removed the obsolete dedicated `dvp` session during appliance setup and made
+  the compatibility kiosk launcher one-shot.
+- Preserved quiet boot, automatic paired hotspot, adaptive display, camera
+  reconnect, touch status, USB export, battery monitoring, and all UI behavior.
+
 ## 27 October 2026 — processing unit 3.2.5
 
 - Restored a product-facing touch-link message without restoring diagnostic

@@ -8,6 +8,15 @@ if [[ "$EUID" -eq 0 ]]; then
   exit 1
 fi
 
+# The appliance now starts DVP from the ordinary desktop's autostart. Disable
+# that entry first so this recovery command really leaves a maintenance-only
+# desktop after reboot.
+if [[ -x "$DVP_ROOT/.venv/bin/python" ]]; then
+  "$DVP_ROOT/.venv/bin/python" "$DVP_ROOT/tools/autostart.py" disable
+else
+  python3 "$DVP_ROOT/tools/autostart.py" disable
+fi
+
 if [[ -f /etc/lightdm/lightdm.conf.before-dvp ]]; then
   sudo cp -a /etc/lightdm/lightdm.conf.before-dvp /etc/lightdm/lightdm.conf
 else
@@ -16,6 +25,9 @@ else
 fi
 sudo rm -f /etc/lightdm/lightdm.conf.d/99-dvp-kiosk.conf
 sudo rm -f /usr/share/xsessions/dvp.desktop
+if [[ -f /etc/xdg/labwc/autostart.before-dvp ]]; then
+  sudo cp -a /etc/xdg/labwc/autostart.before-dvp /etc/xdg/labwc/autostart
+fi
 sudo systemctl disable dvp-hotspot.service >/dev/null 2>&1 || true
 sudo rm -f /etc/systemd/system/dvp-hotspot.service
 sudo systemctl daemon-reload
@@ -39,7 +51,6 @@ sudo systemctl unmask lightdm >/dev/null 2>&1 || true
 sudo systemctl enable lightdm NetworkManager >/dev/null
 
 echo "The maintenance desktop session has been restored."
-echo "DVP desktop autostart remains disabled for maintenance access."
+echo "DVP desktop autostart is disabled for maintenance access."
 echo "Reboot with: sudo reboot"
-echo "To re-enable old desktop autostart later:"
-echo "  $DVP_ROOT/.venv/bin/python $DVP_ROOT/tools/autostart.py enable"
+echo "To re-enable DVP startup later, run setup_appliance.sh with this unit's number."

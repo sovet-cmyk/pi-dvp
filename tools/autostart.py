@@ -31,7 +31,9 @@ def main():
     target.write_text('[Desktop Entry]\nType=Application\nName=DVP\n'
                       'Comment=USB camera, detection, recording and HDMI display\n'
                       'Exec='+desktop_quote(root/'start_dvp.sh')+'\n'
-                      'Terminal=false\nX-GNOME-Autostart-enabled=true\n',encoding='utf-8')
+                      'Terminal=false\nStartupNotify=false\n'
+                      'X-GNOME-Autostart-enabled=true\n'
+                      'X-GNOME-Autostart-Delay=0\n',encoding='utf-8')
     print('DVP desktop autostart enabled:',target)
     print('Enable display-session autologin if needed.')
 
