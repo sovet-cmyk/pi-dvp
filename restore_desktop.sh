@@ -25,6 +25,12 @@ else
 fi
 sudo rm -f /etc/lightdm/lightdm.conf.d/99-dvp-kiosk.conf
 sudo rm -f /usr/share/xsessions/dvp.desktop
+sudo rm -f /etc/systemd/system.conf.d/99-dvp-quiet.conf
+sudo systemctl unmask getty@tty1.service >/dev/null 2>&1 || true
+for DVP_PLYMOUTH_UNIT in plymouth-start.service plymouth-read-write.service \
+    plymouth-quit.service plymouth-quit-wait.service; do
+  sudo systemctl unmask "$DVP_PLYMOUTH_UNIT" >/dev/null 2>&1 || true
+done
 if [[ -f /etc/xdg/labwc/autostart.before-dvp ]]; then
   sudo cp -a /etc/xdg/labwc/autostart.before-dvp /etc/xdg/labwc/autostart
 fi

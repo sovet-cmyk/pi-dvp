@@ -18,7 +18,7 @@ fi
 sudo apt-get update
 sudo apt-get install -y python3-venv python3-pip python3-opencv python3-numpy \
   ffmpeg v4l-utils udisks2 exfatprogs network-manager x11-xserver-utils \
-  i2c-tools python3-smbus
+  i2c-tools python3-smbus python3-rpi-lgpio
 python3 -m venv --system-site-packages "$DVP_ROOT/.venv"
 "$DVP_ROOT/.venv/bin/python" -m pip install --upgrade pip
 DVP_CONSTRAINT="$(mktemp)"
@@ -27,7 +27,7 @@ trap 'rm -f -- "$DVP_CONSTRAINT"' EXIT
 "$DVP_ROOT/.venv/bin/python" -c 'import numpy; print("numpy=="+numpy.__version__)' > "$DVP_CONSTRAINT"
 "$DVP_ROOT/.venv/bin/python" -m pip install --only-binary=:all: \
   --constraint "$DVP_CONSTRAINT" -r "$DVP_ROOT/requirements.txt"
-for DVP_GROUP in video dialout i2c; do
+for DVP_GROUP in video dialout i2c gpio; do
   if getent group "$DVP_GROUP" >/dev/null; then
     sudo usermod -aG "$DVP_GROUP" "$(id -un)"
   fi
@@ -37,6 +37,7 @@ chmod +x "$DVP_ROOT/start_kiosk.sh" "$DVP_ROOT/setup_appliance.sh" \
   "$DVP_ROOT/restore_desktop.sh" "$DVP_ROOT/configure_pair.sh"
 chmod +x "$DVP_ROOT/tools/touch_hotspot.sh"
 chmod +x "$DVP_ROOT/tools/test_ina226.py"
+chmod +x "$DVP_ROOT/tools/test_usb_buzzer.py"
 "$DVP_ROOT/.venv/bin/python" "$DVP_ROOT/tools/check_system.py"
 if [[ "$DVP_AUTOSTART" -eq 1 ]]; then
   "$DVP_ROOT/.venv/bin/python" "$DVP_ROOT/tools/autostart.py" enable

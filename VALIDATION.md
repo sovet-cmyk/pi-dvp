@@ -1,4 +1,4 @@
-# Validation — updated 27 October 2026
+# Validation — updated 29 October 2026
 
 This is software validation on an x86-64 Linux development environment. It is
 not a processing-board performance benchmark and does not replace final tests on
@@ -10,7 +10,10 @@ the distribution's GUI OpenCV/NumPy plus apt-provided SMBus/GPIO packages.
 
 ## Current automated result
 
-All **44 processing-repository tests passed** on 27 October 2026. They cover:
+The baseline **44 processing-repository tests passed** on 27 October 2026. The
+29 October v3.2.8 sounder additions passed targeted fake-GPIO thread/pattern,
+USB lifecycle, Python compilation, Bash syntax, whitespace, and silent-boot
+transformation checks. The suite covers:
 
 - the supplied ONNX model, person-class decoding, letterbox coordinates, NMS,
   expiry/generation behavior, and missing-model fallback;
@@ -23,6 +26,8 @@ All **44 processing-repository tests passed** on 27 October 2026. They cover:
   mission pinning, and exclusion of system/data disks;
 - automatic selection of **all** missions when a new USB drive appears;
 - persistent USB success/failure state, safe-removal state, and completion files;
+- non-blocking GPIO17 start/success/failure patterns, interruption/silencing,
+  and clean PWM cancellation through the deployed lgpio-compatible API;
 - authenticated UDP/serial touch parsing, sessions, sequence rejection, timeout,
   release behavior, authenticated coordinated poweroff, and operator-visible
   ready/searching/lost/error link states;
@@ -65,7 +70,8 @@ This preserves elapsed time instead of playing the recording twice as fast.
   maximum-load temperature/throttling.
 - Human-detection accuracy in intended lighting, range, and camera angles.
 - A real USB drive: all-mission copy, hash verification, automatic unmount,
-  persistent completion/failure result, physical removal, and failure behavior.
+  persistent completion/failure result, physical removal, failure behavior, and
+  the complete one-beep / repeating-triplet / continuous-warning sound sequence.
 - R005 monitor address/readings against a trusted multimeter and series ammeter,
   shunt/terminal temperature at peak load, and a full 2S discharge to calibrate
   the four thresholds.

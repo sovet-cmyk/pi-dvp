@@ -20,7 +20,7 @@ def main():
     report={'platform':platform.platform(),'machine':platform.machine(),
             'python':platform.python_version(),'data_dir':str(config.DATA_DIR)}
     failures=[]
-    for name in ('cv2','numpy','onnxruntime','serial','smbus'):
+    for name in ('cv2','numpy','onnxruntime','serial','smbus','lgpio'):
         try:
             module=__import__(name)
             report[name]=getattr(module,'__version__','installed')

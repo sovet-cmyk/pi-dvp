@@ -29,8 +29,17 @@ if [[ "$#" -gt 0 ]]; then
   bash "$DVP_ROOT/configure_pair.sh" "$@"
 fi
 
+DVP_INSTALL_REQUIRED=0
 if [[ ! -x "$DVP_ROOT/.venv/bin/python" ]]; then
-  echo "DVP dependencies are not installed; running install.sh first."
+  DVP_INSTALL_REQUIRED=1
+elif ! "$DVP_ROOT/.venv/bin/python" -c 'import lgpio' >/dev/null 2>&1; then
+  DVP_INSTALL_REQUIRED=1
+elif getent group gpio >/dev/null && \
+     ! id -nG "$DVP_USER" | tr ' ' '\n' | grep -qx gpio; then
+  DVP_INSTALL_REQUIRED=1
+fi
+if [[ "$DVP_INSTALL_REQUIRED" -eq 1 ]]; then
+  echo "DVP dependencies or GPIO permissions need updating; running install.sh first."
   echo "The processing unit must have internet access during this stage."
   "$DVP_ROOT/install.sh"
 fi
@@ -68,7 +77,8 @@ fi
 
 chmod +x "$DVP_ROOT/start_dvp.sh" "$DVP_ROOT/start_kiosk.sh" \
   "$DVP_ROOT/configure_pair.sh" \
-  "$DVP_ROOT/tools/touch_hotspot.sh" "$DVP_ROOT/restore_desktop.sh"
+  "$DVP_ROOT/tools/touch_hotspot.sh" "$DVP_ROOT/tools/test_usb_buzzer.py" \
+  "$DVP_ROOT/restore_desktop.sh"
 
 # Preserve the original session and boot configuration once. Re-running the
 # installer does not replace the known-good recovery copies.
@@ -169,16 +179,28 @@ for DVP_BOOT_FILE in /boot/firmware/cmdline.txt /boot/cmdline.txt; do
       s#(^|[[:space:]])earlycon(=[^[:space:]]+)?([[:space:]]|$)# #g
       s#(^|[[:space:]])earlyprintk=[^[:space:]]+# #g
       s#(^|[[:space:]])splash([[:space:]]|$)# #g
+      s#(^|[[:space:]])plymouth\.ignore-serial-consoles([[:space:]]|$)# #g
+      s#(^|[[:space:]])plymouth\.enable=[^[:space:]]+# #g
       s#(^|[[:space:]])quiet([[:space:]]|$)# #g
       s#(^|[[:space:]])logo\.nologo([[:space:]]|$)# #g
       s#(^|[[:space:]])loglevel=[^[:space:]]+# #g
       s#(^|[[:space:]])systemd\.show_status=[^[:space:]]+# #g
       s#(^|[[:space:]])rd\.systemd\.show_status=[^[:space:]]+# #g
       s#(^|[[:space:]])rd\.udev\.log_level=[^[:space:]]+# #g
+      s#(^|[[:space:]])udev\.log_level=[^[:space:]]+# #g
       s#(^|[[:space:]])vt\.global_cursor_default=[^[:space:]]+# #g
+      s#[[:space:]]+# #g
+      s#^[[:space:]]+##
+      s#[[:space:]]+$##
     }' "$DVP_BOOT_FILE"
-    for DVP_TOKEN in quiet logo.nologo loglevel=0 systemd.show_status=false \
-      rd.systemd.show_status=false rd.udev.log_level=0 vt.global_cursor_default=0; do
+    # Route diagnostics to the serial maintenance console instead of HDMI.
+    # console=null caused plymouthd to fail on the deployed image, while no
+    # console target can fall back to the active visible VT. Journald retains
+    # service diagnostics and tty2 remains available for local recovery.
+    for DVP_TOKEN in console=serial0,115200 quiet logo.nologo loglevel=0 \
+      plymouth.enable=0 systemd.show_status=false \
+      rd.systemd.show_status=false rd.udev.log_level=0 udev.log_level=0 \
+      vt.global_cursor_default=0; do
       if ! grep -Eq "(^|[[:space:]])${DVP_TOKEN}([[:space:]]|$)" "$DVP_BOOT_FILE"; then
         sudo sed -i "1 s|[[:space:]]*$| $DVP_TOKEN|" "$DVP_BOOT_FILE"
       fi
@@ -186,10 +208,27 @@ for DVP_BOOT_FILE in /boot/firmware/cmdline.txt /boot/cmdline.txt; do
     break
   fi
 done
+sudo install -d -m 0755 /etc/systemd/system.conf.d
+printf '%s\n' '[Manager]' 'ShowStatus=no' | \
+  sudo tee /etc/systemd/system.conf.d/99-dvp-quiet.conf >/dev/null
+sudo systemctl mask getty@tty1.service >/dev/null
+for DVP_PLYMOUTH_UNIT in plymouth-start.service plymouth-read-write.service \
+    plymouth-quit.service plymouth-quit-wait.service; do
+  sudo systemctl mask "$DVP_PLYMOUTH_UNIT" >/dev/null 2>&1 || true
+done
 if [[ -f /boot/firmware/config.txt ]] && \
    ! grep -Eq '^[[:space:]]*disable_splash=1([[:space:]]*#.*)?$' /boot/firmware/config.txt; then
   printf '\n# DVP appliance: suppress firmware splash\ndisable_splash=1\n' | \
     sudo tee -a /boot/firmware/config.txt >/dev/null
+fi
+if [[ -f /boot/firmware/config.txt ]]; then
+  if grep -Eq '^[[:space:]]*enable_uart=' /boot/firmware/config.txt; then
+    sudo sed -Ei 's|^[[:space:]]*enable_uart=.*|enable_uart=1|' \
+      /boot/firmware/config.txt
+  else
+    printf '\n# DVP serial maintenance console\nenable_uart=1\n' | \
+      sudo tee -a /boot/firmware/config.txt >/dev/null
+  fi
 fi
 if [[ -f /boot/firmware/config.txt ]] && \
    ! grep -Eq '^[[:space:]]*dtparam=i2c_arm=on([[:space:]]*#.*)?$' /boot/firmware/config.txt; then
@@ -211,6 +250,7 @@ echo
 echo "DVP processing appliance configuration is complete."
 echo "Early desktop-backed DVP startup is enabled ($DVP_DESKTOP_SESSION)."
 echo "The desktop starts only after DVP exits with Esc."
+echo "Visible kernel/systemd console output is disabled; logs remain in the journal."
 echo "The paired DVP touch hotspot will now be configured and activated."
 echo "If this terminal uses wlan0 remotely, its connection may close normally."
 echo "Afterwards reboot with: sudo reboot"

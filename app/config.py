@@ -4,11 +4,8 @@ import math
 import os
 from pathlib import Path
 
-VERSION = "3.2.7"
-LEGACY_IGNORED_SETTINGS = {
-    "USB_SAFE_BEEP_SECONDS", "BUZZER_ENABLED", "BUZZER_GPIO",
-    "BUZZER_ACTIVE_HIGH", "BUZZER_FREQUENCY_HZ", "BUZZER_DUTY_CYCLE",
-}
+VERSION = "3.2.8"
+LEGACY_IGNORED_SETTINGS = {"USB_SAFE_BEEP_SECONDS", "BUZZER_ACTIVE_HIGH"}
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULTS = {
     "CAMERA_DEVICE": 0, "CAMERA_WIDTH": 1280, "CAMERA_HEIGHT": 720,
@@ -25,6 +22,10 @@ DEFAULTS = {
     "RECORD_MAX_GAP_SECONDS": 1.0, "ENCODER_THREADS": 2, "RECORD_CRF": 23,
     "RECORD_MIN_FREE_MB": 256, "USB_AUTOMOUNT": True, "AUTO_USB_EXPORT": True,
     "AUTO_USB_EJECT": True, "USB_SCAN_SECONDS": 2.0, "VERIFY_EXPORT": True,
+    "BUZZER_ENABLED": True, "BUZZER_GPIO": 17,
+    "BUZZER_FREQUENCY_HZ": 2000, "BUZZER_DUTY_CYCLE": 50,
+    "BUZZER_BEEP_SECONDS": 0.25, "BUZZER_SUCCESS_GAP_SECONDS": 0.20,
+    "BUZZER_SUCCESS_REPEAT_SECONDS": 5.0,
     "STORAGE_WARN_GB": 5.0, "STORAGE_DELETE_GB": 2.0,
     "STORAGE_TARGET_GB": 3.0, "AUTO_DELETE_OLDEST": True,
     "TOUCH_MODE": "udp", "TOUCH_UDP_BIND": "0.0.0.0", "TOUCH_UDP_PORT": 4210,
@@ -105,6 +106,10 @@ if settings["BATTERY_FILTER_ALPHA"] > 1:
     raise ValueError("BATTERY_FILTER_ALPHA must be at most 1")
 if settings["INA226_ADDRESS"] > 127:
     raise ValueError("INA226_ADDRESS must be a 7-bit I2C address")
+if settings["BUZZER_GPIO"] > 27:
+    raise ValueError("BUZZER_GPIO must be a BCM GPIO number between 1 and 27")
+if settings["BUZZER_DUTY_CYCLE"] > 100:
+    raise ValueError("BUZZER_DUTY_CYCLE must be at most 100")
 if settings["RECORD_CRF"] > 51 or settings["MOTION_PIXEL_THRESHOLD"] > 255 or settings["MOTION_GLOBAL_FRACTION"] > 1:
     raise ValueError("Invalid encoder quality or motion threshold")
 globals().update(settings)

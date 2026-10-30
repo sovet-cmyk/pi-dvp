@@ -4,6 +4,7 @@ from app import config
 from app.state import state,notify
 from ai.detection import DetectionWorker
 from ai.motion import MotionDetector
+from hardware.buzzer import Buzzer
 from hardware.camera import CameraManager
 from hardware.ina226 import INA226Monitor
 from hardware.touch_bridge import TouchBridge
@@ -23,7 +24,8 @@ class DVPApplication:
         self.motion=MotionDetector()
         self.bridge=TouchBridge()
         self.battery=INA226Monitor()
-        self.usb=USBMonitor(self.missions,self.recorder)
+        self.buzzer=Buzzer(enabled=enable_usb and config.BUZZER_ENABLED)
+        self.usb=USBMonitor(self.missions,self.recorder,self.buzzer)
         self.camera=camera_type(self._on_frame,self._on_disconnect)
         self.enable_usb=enable_usb
         self.accepting=True
@@ -44,6 +46,7 @@ class DVPApplication:
         self.detector.start()
         self.bridge.start()
         if self.enable_usb:
+            self.buzzer.start()
             self.usb.start()
         self.camera.start()
         logger.info('DVP %s started. Camera USB; display HDMI; record mode %s',config.VERSION,state.record_mode)
@@ -124,10 +127,12 @@ class DVPApplication:
         self.bridge.stop()
         self.camera.stop()
         usb_ok=self.usb.stop()
+        buzzer_ok=self.buzzer.stop()
         self.battery.close()
         self.detector.stop()
         self.storage.stop()
         recording_ok=self.recorder.stop() if self.started else True
-        logger.info('Stopped; recordings closed=%s, USB worker stopped=%s',recording_ok,usb_ok)
-        return recording_ok and usb_ok
+        logger.info('Stopped; recordings closed=%s, USB worker stopped=%s, audible status stopped=%s',
+                    recording_ok,usb_ok,buzzer_ok)
+        return recording_ok and usb_ok and buzzer_ok
 

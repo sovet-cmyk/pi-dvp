@@ -1,11 +1,11 @@
 # DVP V3 Processing Unit
 
-Version **3.2.7** — 27 October 2026
+Version **3.2.8** — 29 October 2026
 
 This repository is the complete processing-unit package for DVP V3. It provides
 the live camera interface, raw/UI recording, motion detection, human detection,
 wireless touch reception, automatic USB export, battery bars, coordinated
-shutdown, and desktop-backed appliance autostart.
+shutdown, audible export status, and desktop-backed appliance autostart.
 
 The supported hardware image is Raspberry Pi OS 64-bit with Desktop on a
 Raspberry Pi 5. Those platform names are retained here for installation and
@@ -33,6 +33,14 @@ shutdown surfaces use DVP naming only.
 - DVP starts at the beginning of the graphical session, before the wallpaper,
   panel, and other desktop components. This prevents a desktop flash at boot.
   Pressing Esc exits DVP once and lets the maintenance desktop finish starting.
+- Kernel and system-service output is routed to the serial maintenance console,
+  Plymouth is disabled, and diagnostic records remain in the journal. The HDMI
+  display stays black until DVP opens, while `Ctrl+Alt+F2` remains available for
+  recovery. Physical header pins 8 and 10 are reserved for that serial console.
+- The transistor-driven sounder gives one beep when export starts, repeats three
+  beeps every five seconds after verified safe removal, and gives a continuous
+  warning tone after failure. Success/failure sound stops when the drive is
+  physically removed.
 
 ## Fresh installation from GitHub
 
@@ -76,6 +84,7 @@ For an existing clone:
 ```bash
 cd ~/dvp
 git pull --ff-only
+./install.sh
 ./setup_appliance.sh 1
 sudo reboot
 ```
@@ -200,11 +209,35 @@ Compare the reported pack voltage and current with trusted meters before relying
 on the battery bars. A negative current means the high-current `IN+` and `IN-`
 path is reversed.
 
-## USB indication without additional hardware
+## USB audible indication
 
-This build contains no buzzer driver, GPIO buzzer wiring, or buzzer software
-dependency. A bare 5 V passive buzzer must not be connected directly to a logic
-pin. The normal display instead shows export progress and retains one of these
+The installed 5 V passive magnetic buzzer is switched through the tested NPN
+transistor circuit. Never connect the buzzer directly to GPIO17.
+
+| Connection | Destination |
+|---|---|
+| Physical pin 11 / GPIO17 | 1 kΩ resistor, then transistor base |
+| Transistor base | 10 kΩ pull-down resistor to common ground |
+| Transistor emitter | Common ground; physical pin 9 is a ground option |
+| Transistor collector | Buzzer negative terminal |
+| Buzzer positive terminal | Regulated switched 5 V rail |
+| 1N4007 striped end (cathode) | Buzzer positive / 5 V |
+| 1N4007 non-striped end (anode) | Buzzer negative / transistor collector |
+
+The two outer transistor leads are not universal between manufacturers; use the
+confirmed emitter/collector orientation from the working hardware test. GPIO17
+is a logic signal only. The transistor carries the buzzer current and the diode
+clamps the magnetic flyback pulse.
+
+Audible behavior:
+
+- export started: one short beep;
+- verified copy, sync and unmount completed: three short beeps, repeated every
+  five seconds until the pendrive is physically removed;
+- export, verification or unmount failed: continuous tone until pendrive removal
+  or DVP shutdown.
+
+The display simultaneously shows export progress and retains one of these
 results at the top until the next export or reboot:
 
 - `USB EXPORT COMPLETE - SAFE TO REMOVE` while the verified drive is unmounted;
@@ -216,11 +249,16 @@ last result is still visible after the USB drive is removed and the display is
 reconnected. The exported drive also contains `EXPORT_COMPLETE.txt` and a
 SHA-256 manifest only after the copy has completed successfully.
 
-There is no reliable way for software to announce an invisible completion event
-while both the display and every physical indicator are unavailable. Do not use
-a fixed time estimate as proof of completion. A USB drive with its own activity
-indicator or a future read-only status page on the existing DVP hotspot can give
-live feedback without changing the enclosure.
+After installation and a logout/reboot, test the complete insertion path with
+the pendrive initially removed:
+
+```bash
+cd ~/dvp
+sudo .venv/bin/python tools/test_usb_buzzer.py
+```
+
+Insert the pendrive only when `USB WAIT` appears. The tool reports the detected
+device, gives one beep and exits. It does not copy or alter any files.
 
 ## Automatic USB export
 
@@ -233,7 +271,8 @@ with exFAT, FAT, NTFS, ext, or F2FS. DVP then:
 4. verifies every file with SHA-256 and writes `export_manifest.json` plus
    `EXPORT_COMPLETE.txt`;
 5. syncs and unmounts the filesystem, then prevents it from remounting;
-6. retains the verified success/failure result for display after reconnection.
+6. starts the repeating three-beep safe-removal signal;
+7. retains the verified success/failure result for display after reconnection.
 
 The originals remain internally. Failed copies stay clearly marked as partial
 and are never reported as complete. When the display is connected, remove the

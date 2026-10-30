@@ -157,8 +157,9 @@ def copy_snapshot(sources,mount,verify=True,cancel=None,progress=None,validate=N
         os.close(fd)
 
 class USBMonitor:
-    def __init__(self,missions,recorder):
+    def __init__(self,missions,recorder,buzzer=None):
         self.missions,self.recorder = missions,recorder
+        self.buzzer = buzzer
         self.stop_event = threading.Event()
         self.commands = queue.Queue(maxsize=4)
         self.drive = None
@@ -181,6 +182,13 @@ class USBMonitor:
         except queue.Full:
             notify('USB operation already queued',3)
 
+    def _buzz(self,method):
+        if self.buzzer:
+            try:
+                getattr(self.buzzer,method)()
+            except Exception as exc:
+                logger.warning('USB audible status command failed: %s',exc)
+
     def scan(self):
         raw = run_command(['lsblk','-J','-p','-o','NAME,TYPE,TRAN,RM,RO,MOUNTPOINTS,FSTYPE,UUID,LABEL'])
         tree = json.loads(raw)
@@ -190,6 +198,7 @@ class USBMonitor:
             self.ejected_disk = None
             state.usb_safe_to_remove = False
             state.usb_export_error = False
+            self._buzz('silence')
         drives = [d for d in drives if d.disk != self.ejected_disk]
         self.drives = drives
         now = time.monotonic()
@@ -214,7 +223,9 @@ class USBMonitor:
             # Keep usb_last_result so the display can report the outcome when it
             # is reconnected after using the shared external connector.
             state.usb_export_error = False
+            self._buzz('silence')
         if key and key != self.last_key:
+            self._buzz('silence')
             state.usb_safe_to_remove = False
             state.usb_export_error = False
             state.usb_last_result = ''
@@ -231,6 +242,7 @@ class USBMonitor:
         state.export_cancel = False
         state.export_progress = 0
         state.usb_last_result = ''
+        self._buzz('export_started')
         protected = []
         mount = Path(drive.mount)
         try:
@@ -275,6 +287,7 @@ class USBMonitor:
         state.usb_safe_to_remove = True
         state.usb_export_error = False
         state.usb_last_result = 'complete' if export_complete else 'ejected'
+        self._buzz('export_succeeded' if export_complete else 'silence')
         notify('USB EXPORT COMPLETE - SAFE TO REMOVE' if export_complete else
                'USB SAFE TO REMOVE',10)
 
@@ -303,6 +316,7 @@ class USBMonitor:
                     self._safe_to_remove(export_complete=state.usb_last_result=='copied')
             except Exception as exc:
                 logger.exception('USB operation failed')
+                self._buzz('export_failed')
                 state.usb_export_error = True
                 state.usb_safe_to_remove = False
                 state.usb_last_result = 'failed'

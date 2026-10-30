@@ -20,6 +20,7 @@ from app.state import state,State
 from ai.inference import InferenceEngine,decode
 from ai.detection import DetectionWorker
 from ai.motion import MotionDetector
+from hardware.buzzer import Buzzer
 from hardware.camera import CameraManager,FramePacket
 from hardware.display import DisplayOutput,parse_xrandr_size
 from hardware.ina226 import (INA226Monitor,battery_bars,REG_BUS_VOLTAGE,
@@ -47,6 +48,32 @@ class Base(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory(prefix='dvp-case-')
         self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name)
+
+class BuzzerTests(Base):
+    def test_started_success_failure_and_silence_patterns(self):
+        gpio=Mock()
+        gpio.gpiochip_open.return_value=7
+        buzzer=Buzzer(enabled=True,gpio_module=gpio,beep_seconds=.01,
+                      success_gap_seconds=.005,success_repeat_seconds=.08)
+        self.addCleanup(buzzer.stop)
+        buzzer.start()
+
+        buzzer.export_started()
+        wait_for(lambda: gpio.tx_pwm.call_count>=1)
+        wait_for(lambda: gpio.tx_pulse.call_count>=1)
+
+        before=gpio.tx_pwm.call_count
+        buzzer.export_succeeded()
+        wait_for(lambda: gpio.tx_pwm.call_count>=before+3)
+
+        buzzer.silence()
+        wait_for(lambda: gpio.gpio_write.call_count>=1)
+        before=gpio.tx_pwm.call_count
+        buzzer.export_failed()
+        wait_for(lambda: gpio.tx_pwm.call_count>=before+1)
+        buzzer.silence()
+        self.assertTrue(buzzer.stop())
+        gpio.gpiochip_close.assert_called_once_with(7)
 
 class DetectionTests(Base):
     def test_supplied_model_runs_without_pytorch(self):
@@ -272,12 +299,14 @@ class ExportTests(Base):
             self.assertIsNone(manager.delete_oldest())
         recorder=Mock()
         recorder.boundary.side_effect=close
-        monitor=USBMonitor(manager,recorder)
+        buzzer=Mock()
+        monitor=USBMonitor(manager,recorder,buzzer)
         mount=self.root/'usb'
         mount.mkdir()
         monitor.drive=Drive('/dev/sdb1','test','test',str(mount),'/dev/sdb')
         with patch('hardware.usb.os.path.ismount',return_value=True):
             monitor._export(latest=True)
+        buzzer.export_started.assert_called_once_with()
         self.assertFalse(state.export_busy)
         self.assertEqual(manager.pinned,set())
         self.assertEqual(len(list(mount.glob('DVP_Export_*'))),1)
@@ -318,9 +347,11 @@ class ExportTests(Base):
         self.assertEqual(state.usb_last_result,'')
 
     def test_safe_remove_result_survives_physical_removal(self):
-        monitor=USBMonitor(MissionManager(self.root/'missions'),Mock())
+        buzzer=Mock()
+        monitor=USBMonitor(MissionManager(self.root/'missions'),Mock(),buzzer)
         monitor.ejected_disk='/dev/sdb'
         monitor._safe_to_remove(export_complete=True)
+        buzzer.export_succeeded.assert_called_once_with()
         self.assertTrue(state.usb_safe_to_remove)
         self.assertFalse(state.usb_export_error)
         self.assertEqual(state.usb_last_result,'complete')
@@ -331,6 +362,7 @@ class ExportTests(Base):
         self.assertTrue(state.usb_safe_to_remove)
         with patch('hardware.usb.run_command',return_value=json.dumps({'blockdevices':[]})):
             monitor.scan()
+        buzzer.silence.assert_called()
         self.assertFalse(state.usb_safe_to_remove)
         self.assertEqual(state.usb_last_result,'complete')
 

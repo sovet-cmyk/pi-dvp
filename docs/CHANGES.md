@@ -1,5 +1,21 @@
 # Review of the uploaded source
 
+## 29 October 2026 — processing unit 3.2.8
+
+- Replaced the incompatible `console=null` attempt with the deployed silent-boot
+  arrangement: diagnostics route to `serial0`, Plymouth is disabled, routine
+  kernel/systemd/udev status is suppressed, and HDMI stays black until DVP.
+- Added a persistent systemd `ShowStatus=no` drop-in and masked only the visible
+  `tty1` getty; `tty2` remains available for recovery.
+- Recovery now removes the quiet-status drop-in and unmasks `tty1`.
+- Restored the now physically validated transistor-driven 5 V passive buzzer on
+  GPIO17/physical pin 11. Export start gives one beep, verified safe removal
+  repeats three beeps every five seconds, failure gives a continuous tone, and
+  physical USB removal or application shutdown silences it.
+- Added the lgpio dependency, GPIO group setup, a non-destructive USB insertion
+  sounder test, configuration validation, operator wiring instructions, and
+  automated pattern/USB lifecycle tests.
+
 ## 27 October 2026 — processing unit 3.2.7
 
 - Moved DVP from late XDG desktop autostart to the beginning of labwc system
