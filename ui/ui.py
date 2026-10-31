@@ -1,5 +1,6 @@
 """Minimal DVP controls with shared geometry for local and wireless touch."""
 import time
+from datetime import datetime
 import cv2
 from app import config
 from app.state import state
@@ -20,18 +21,23 @@ class DVPUI:
         if state.dialog=='power':
             return {'CANCEL':(w//2-205,h//2+40,w//2-25,h//2+92),
                     'POWER_CONFIRM':(w//2+25,h//2+40,w//2+205,h//2+92)}
-        if state.dialog=='usb':
-            if state.export_busy:
-                return {'EXPORT_CANCEL':(w//2-120,h//2+55,w//2+120,h//2+105),
-                        'CANCEL':(w//2-120,h//2+115,w//2+120,h//2+158)}
-            return {'EXPORT_LATEST':(w//2-210,h//2-30,w//2-10,h//2+20),
-                    'EXPORT_ALL':(w//2+10,h//2-30,w//2+210,h//2+20),
-                    'EJECT':(w//2-210,h//2+38,w//2-10,h//2+88),
-                    'CANCEL':(w//2+10,h//2+38,w//2+210,h//2+88)}
-        if state.dialog in ('storage','delete'):
-            command = 'DELETE_CONFIRM' if state.dialog=='delete' else 'DELETE_REQUEST'
-            return {command:(w//2-210,h//2+35,w//2-10,h//2+88),
-                    'CANCEL':(w//2+10,h//2+35,w//2+210,h//2+88)}
+        if state.dialog=='storage':
+            regions = {}
+            start = state.storage_page*4
+            for row,item in enumerate(state.storage_items[start:start+4]):
+                regions['STORAGE_ITEM_'+item['name']] = (w//2-225,156+row*44,w//2+225,194+row*44)
+            y1,y2=h-107,h-65
+            regions.update({
+                'STORAGE_PREV':(w//2-225,y1,w//2-145,y2),
+                'STORAGE_NEXT':(w//2-137,y1,w//2-57,y2),
+                'STORAGE_SELECT_ALL':(w//2-49,y1,w//2+49,y2),
+                'STORAGE_DELETE':(w//2+57,y1,w//2+137,y2),
+                'CANCEL':(w//2+145,y1,w//2+225,y2),
+            })
+            return regions
+        if state.dialog=='delete_confirm':
+            return {'DELETE_SELECTED_CONFIRM':(w//2-210,h//2+55,w//2-10,h//2+108),
+                    'CANCEL':(w//2+10,h//2+55,w//2+210,h//2+108)}
         if not state.ui_visible:
             return {'UI':(w-64,6,w-6,45)}
         cy = h-100
@@ -39,7 +45,7 @@ class DVPUI:
                    'POWER':(w-58,4,w-4,34)}
         for name,dx,dy in [('UP',0,-42),('DOWN',0,42),('LEFT',-42,0),('RIGHT',42,0),('CENTER',0,0)]:
             regions[name] = (85+dx-20,cy+dy-20,85+dx+20,cy+dy+20)
-        for i,name in enumerate(('MOTION','HUMAN','UI','RECORD_MODE','USB','STORAGE')):
+        for i,name in enumerate(('MOTION','HUMAN','UI','RECORD_MODE','STORAGE')):
             regions[name]=(w-68,75+i*62,w-10,123+i*62)
         return regions
 
@@ -164,7 +170,7 @@ class DVPUI:
             labels={'ZOOM_IN':'+','ZOOM_OUT':'-','UP':'U','DOWN':'D','LEFT':'L','RIGHT':'R',
                     'CENTER':'C','MOTION':'M','HUMAN':'H','UI':'U',
                     'RECORD_MODE':'RAW' if state.record_mode=='raw' else 'UIR',
-                    'USB':'USB','STORAGE':'S','POWER':'PWR'}
+                    'STORAGE':'S','POWER':'PWR'}
             if not state.dialog:
                 for command,rect in self.rects().items():
                     colour=GRAY
@@ -193,28 +199,68 @@ class DVPUI:
         w,h=self.w,self.h
         cv2.rectangle(img,(w//2-245,80),(w//2+245,h-62),DARK,-1)
         cv2.rectangle(img,(w//2-245,80),(w//2+245,h-62),WHITE,1)
-        title={'power':'SHUT DOWN DVP?','usb':'USB EXPORT','storage':'STORAGE','delete':'DELETE OLDEST MISSION?'}[state.dialog]
+        title={'power':'SHUT DOWN DVP?','storage':'RECORDING STORAGE',
+               'delete_confirm':'DELETE SELECTED RECORDINGS?'}[state.dialog]
         self.text(img,title,w//2-220,119,0.7,YELLOW,2)
         if state.dialog=='power':
             self.text(img,'Close recordings and shut down safely.',w//2-220,168,0.5)
             self.text(img,'An active USB export will be cancelled.',w//2-220,195,0.5)
-        elif state.dialog=='usb':
-            label=state.usb_label if state.usb_connected else 'No mounted USB drive'
-            self.text(img,label[:42],w//2-220,159,0.53)
-            if state.export_busy:
-                self.text(img,f'Copy / verify: {state.export_progress:.0f}%',w//2-220,200,0.6,YELLOW)
-                cv2.rectangle(img,(w//2-215,222),(w//2+215,241),GRAY,-1)
-                cv2.rectangle(img,(w//2-215,222),(w//2-215+int(430*state.export_progress/100),241),GREEN,-1)
+        elif state.dialog=='storage':
+            self.draw_storage_list(img)
         else:
-            self.text(img,f'Free space: {state.free_gb:.2f} GB',w//2-220,160,0.56)
-            self.text(img,'Active recordings and exports are protected.',w//2-220,194,0.47)
-            if state.dialog=='storage':
-                self.text(img,f'Auto-delete below {config.STORAGE_DELETE_GB:g} GB: '+('ON' if config.AUTO_DELETE_OLDEST else 'OFF'),w//2-220,224,0.48)
-            else:
-                self.text(img,'Deletion cannot be undone.',w//2-220,224,0.5,YELLOW)
-        labels={'CANCEL':'BACK','POWER_CONFIRM':'SHUT DOWN','EXPORT_LATEST':'LATEST MISSION',
-                'EXPORT_ALL':'ALL MISSIONS','EJECT':'EJECT USB','EXPORT_CANCEL':'CANCEL EXPORT',
-                'DELETE_REQUEST':'DELETE OLDEST','DELETE_CONFIRM':'CONFIRM DELETE'}
+            count=len(state.storage_selected)
+            self.text(img,f'{count} recording'+('s' if count!=1 else '')+' selected.',w//2-220,165,0.58)
+            self.text(img,'Deleted recordings cannot be recovered.',w//2-220,203,0.50,YELLOW)
+            names=sorted(state.storage_selected)
+            preview=', '.join(names[:3])+(' ...' if len(names)>3 else '')
+            self.text(img,preview[:55],w//2-220,238,0.44)
+        labels={'CANCEL':'BACK','POWER_CONFIRM':'SHUT DOWN',
+                'STORAGE_PREV':'<','STORAGE_NEXT':'>','STORAGE_SELECT_ALL':'ALL',
+                'STORAGE_DELETE':'DELETE','DELETE_SELECTED_CONFIRM':'CONFIRM'}
         for command,rect in self.rects().items():
-            self.button(img,rect,labels[command],RED if command in ('POWER_CONFIRM','DELETE_CONFIRM') else GRAY)
+            if command.startswith('STORAGE_ITEM_'):
+                continue
+            colour=RED if command in ('POWER_CONFIRM','STORAGE_DELETE','DELETE_SELECTED_CONFIRM') else GRAY
+            self.button(img,rect,labels[command],colour)
+
+    @staticmethod
+    def _size_label(size_bytes):
+        size=float(size_bytes)
+        for unit in ('B','KB','MB','GB'):
+            if size<1024 or unit=='GB':
+                return f'{size:.1f} {unit}' if unit in ('MB','GB') else f'{size:.0f} {unit}'
+            size/=1024
+
+    @staticmethod
+    def _date_label(value):
+        try:
+            return datetime.fromisoformat(value.replace('Z','+00:00')).strftime('%d-%m-%Y %H:%M')
+        except (TypeError,ValueError):
+            return 'DATE UNKNOWN'
+
+    def draw_storage_list(self,img):
+        w,h=self.w,self.h
+        items=state.storage_items
+        pages=max(1,(len(items)+3)//4)
+        self.text(img,f'Free: {state.free_gb:.2f} GB   Recordings: {len(items)}   Page {state.storage_page+1}/{pages}',
+                  w//2-220,148,0.43)
+        visible=items[state.storage_page*4:state.storage_page*4+4]
+        if not visible:
+            self.text(img,'No completed recordings available.',w//2-185,205,0.55,YELLOW)
+        for row,item in enumerate(visible):
+            y1=156+row*44
+            selected=item['name'] in state.storage_selected
+            protected=item.get('protected',False)
+            colour=(45,115,45) if selected else GRAY
+            if protected:
+                colour=(65,65,90)
+            cv2.rectangle(img,(w//2-225,y1),(w//2+225,y1+38),colour,-1)
+            cv2.rectangle(img,(w//2-225,y1),(w//2+225,y1+38),WHITE,1)
+            mark='[X]' if selected else '[ ]'
+            self.text(img,mark,w//2-215,y1+25,0.46,GREEN if selected else WHITE)
+            self.text(img,item['name'].replace('Mission_','REC '),w//2-168,y1+25,0.46)
+            self.text(img,self._date_label(item.get('ended_utc','')),w//2-73,y1+25,0.39)
+            self.text(img,self._size_label(item.get('size_bytes',0)),w//2+103,y1+25,0.39)
+            if protected:
+                self.text(img,'BUSY',w//2+181,y1+25,0.36,YELLOW)
 

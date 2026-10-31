@@ -112,3 +112,47 @@ class MissionManager:
                 logger.warning("Deleted completed mission %s",p.name)
                 return p.name
         return None
+
+    @staticmethod
+    def _folder_size(folder):
+        total = 0
+        for path in folder.rglob('*'):
+            try:
+                if path.is_file() and not path.is_symlink():
+                    total += path.stat().st_size
+            except OSError:
+                continue
+        return total
+
+    def completed_info(self):
+        """Return safe, operator-facing details for completed recording sessions."""
+        with self.lock:
+            result = []
+            for folder in reversed(self.completed()):
+                try:
+                    meta = json.loads((folder/'mission.json').read_text(encoding='utf-8'))
+                except (OSError, ValueError):
+                    meta = {}
+                result.append({
+                    'name': folder.name,
+                    'ended_utc': str(meta.get('ended_utc') or meta.get('started_utc') or ''),
+                    'size_bytes': self._folder_size(folder),
+                    'protected': folder in self.pinned,
+                })
+            return result
+
+    def delete_selected(self, names):
+        """Delete only exact, completed, unpinned mission names selected in the UI."""
+        requested = {str(name) for name in names}
+        deleted = []
+        with self.lock:
+            completed = {path.name:path for path in self.completed()}
+            for name in sorted(requested):
+                path = completed.get(name)
+                if (path is None or path in self.pinned or path == self.current
+                        or path.parent != self.root or path.is_symlink()):
+                    continue
+                shutil.rmtree(path)
+                deleted.append(name)
+                logger.warning("Deleted selected completed mission %s", name)
+        return deleted

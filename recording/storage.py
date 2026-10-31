@@ -20,6 +20,18 @@ class StorageManager:
     def request_delete_oldest(self):
         self.requests.put('oldest')
 
+    def refresh_items(self):
+        items = self.missions.completed_info()
+        state.storage_items = items
+        valid = {item['name'] for item in items if not item['protected']}
+        state.storage_selected.intersection_update(valid)
+        pages = max(1, (len(items)+3)//4)
+        state.storage_page = min(max(0,state.storage_page), pages-1)
+        return items
+
+    def request_delete_selected(self,names):
+        self.requests.put(('selected',tuple(names)))
+
     def check(self):
         free = shutil.disk_usage(self.missions.root).free/1024**3
         state.free_gb = free
@@ -27,6 +39,8 @@ class StorageManager:
         if low and not state.storage_low:
             notify(f"Low storage: {free:.1f} GB. Tap S for options",10)
         state.storage_low = low
+        if state.dialog in ('storage','delete_confirm'):
+            self.refresh_items()
         if config.AUTO_DELETE_OLDEST and free<config.STORAGE_DELETE_GB:
             while free<config.STORAGE_TARGET_GB and not self.stop_event.is_set():
                 if not self.missions.delete_oldest():
@@ -39,9 +53,18 @@ class StorageManager:
             try:
                 self.check()
                 while not self.requests.empty():
-                    self.requests.get()
-                    name = self.missions.delete_oldest()
-                    notify(f"Deleted {name}" if name else "No unprotected completed mission to delete",6)
+                    request = self.requests.get()
+                    if isinstance(request,tuple) and request[0]=='selected':
+                        deleted = self.missions.delete_selected(request[1])
+                        state.storage_selected.clear()
+                        if deleted:
+                            notify(f"DELETED {len(deleted)} RECORDING"+('S' if len(deleted)!=1 else ''),6)
+                        else:
+                            notify("NO SELECTED RECORDINGS COULD BE DELETED",6)
+                    else:
+                        name = self.missions.delete_oldest()
+                        notify(f"Deleted {name}" if name else "No unprotected completed mission to delete",6)
+                    self.refresh_items()
                     self.check()
             except Exception:
                 logger.exception("Storage check failed")

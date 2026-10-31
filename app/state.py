@@ -1,5 +1,5 @@
 """UI-facing telemetry. Workers publish scalars; frames/results use their own locks."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import time
 from app import config
 
@@ -26,6 +26,9 @@ class State:
     current_mission: str = ""
     free_gb: float = 0.0
     storage_low: bool = False
+    storage_items: list = field(default_factory=list)
+    storage_selected: set = field(default_factory=set)
+    storage_page: int = 0
     usb_connected: bool = False
     usb_label: str = ""
     export_busy: bool = False

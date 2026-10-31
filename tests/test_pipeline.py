@@ -54,7 +54,8 @@ class BuzzerTests(Base):
         gpio=Mock()
         gpio.gpiochip_open.return_value=7
         buzzer=Buzzer(enabled=True,gpio_module=gpio,beep_seconds=.01,
-                      success_gap_seconds=.005,success_repeat_seconds=.08)
+                      success_gap_seconds=.005,success_repeat_seconds=.08,
+                      failure_seconds=.03)
         self.addCleanup(buzzer.stop)
         buzzer.start()
 
@@ -71,7 +72,7 @@ class BuzzerTests(Base):
         before=gpio.tx_pwm.call_count
         buzzer.export_failed()
         wait_for(lambda: gpio.tx_pwm.call_count>=before+1)
-        buzzer.silence()
+        wait_for(lambda: buzzer.mode==Buzzer.SILENT)
         self.assertTrue(buzzer.stop())
         gpio.gpiochip_close.assert_called_once_with(7)
 
@@ -288,6 +289,21 @@ class ExportTests(Base):
         self.assertTrue(active.exists())
         self.assertIsNone(manager.delete_oldest())
 
+    def test_selected_recordings_delete_only_exact_unprotected_sessions(self):
+        manager=MissionManager(self.root/'missions')
+        first=self.mission(manager)
+        second=self.mission(manager)
+        third=self.mission(manager)
+        manager.pinned.add(second)
+        deleted=manager.delete_selected([first.name,second.name,'Mission_9999'])
+        self.assertEqual(deleted,[first.name])
+        self.assertFalse(first.exists())
+        self.assertTrue(second.exists())
+        self.assertTrue(third.exists())
+        info=manager.completed_info()
+        self.assertEqual([item['name'] for item in info],[third.name,second.name])
+        self.assertTrue(next(item for item in info if item['name']==second.name)['protected'])
+
     def test_export_pins_before_recorder_finishes(self):
         manager=MissionManager(self.root/'missions')
         source=manager.start('raw')
@@ -491,6 +507,13 @@ HDMI-1 connected 800x480+0+0
         self.assertIn('TOUCH READY',visible)
         for forbidden in ('DROP','DUP','AI ','USB CAM',' GB','39C'):
             self.assertNotIn(forbidden,visible)
+
+    def test_usb_control_is_not_present_on_operator_overlay(self):
+        state.dialog=''
+        state.ui_visible=True
+        regions=DVPUI().rects()
+        self.assertNotIn('USB',regions)
+        self.assertIn('STORAGE',regions)
 
     def test_touch_link_states_are_operator_visible(self):
         ui=DVPUI()

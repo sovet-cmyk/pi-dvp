@@ -1,5 +1,17 @@
 # Review of the uploaded source
 
+## 31 October 2026 — processing unit 3.2.9
+
+- Removed the on-screen USB control and manual export dialog. USB insertion,
+  verified export, automatic unmount and retained result reporting remain fully
+  automatic while the display is disconnected.
+- Replaced `DELETE OLDEST` with a paged completed-recording list showing session
+  name, date/time and size. Operators can select individual sessions or `ALL`,
+  review the count, and confirm deletion. Active and export-pinned recordings
+  remain protected.
+- Limited the export-failure buzzer warning to 10 seconds. It now silences
+  automatically even if the failed pendrive remains connected.
+
 ## 29 October 2026 — processing unit 3.2.8
 
 - Replaced the incompatible `console=null` attempt with the deployed silent-boot
@@ -10,7 +22,7 @@
 - Recovery now removes the quiet-status drop-in and unmasks `tty1`.
 - Restored the now physically validated transistor-driven 5 V passive buzzer on
   GPIO17/physical pin 11. Export start gives one beep, verified safe removal
-  repeats three beeps every five seconds, failure gives a continuous tone, and
+  repeats three beeps every five seconds, failure gives a warning tone, and
   physical USB removal or application shutdown silences it.
 - Added the lgpio dependency, GPIO group setup, a non-destructive USB insertion
   sounder test, configuration validation, operator wiring instructions, and

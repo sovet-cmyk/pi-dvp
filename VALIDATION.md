@@ -1,4 +1,4 @@
-# Validation — updated 29 October 2026
+# Validation — updated 31 October 2026
 
 This is software validation on an x86-64 Linux development environment. It is
 not a processing-board performance benchmark and does not replace final tests on
@@ -11,6 +11,8 @@ the distribution's GUI OpenCV/NumPy plus apt-provided SMBus/GPIO packages.
 ## Current automated result
 
 The baseline **44 processing-repository tests passed** on 27 October 2026. The
+31 October v3.2.9 changes add targeted checks for selected-session deletion,
+the absence of an operator USB button, and automatic failure-tone timeout. The
 29 October v3.2.8 sounder additions passed targeted fake-GPIO thread/pattern,
 USB lifecycle, Python compilation, Bash syntax, whitespace, and silent-boot
 transformation checks. The suite covers:
@@ -26,7 +28,8 @@ transformation checks. The suite covers:
   mission pinning, and exclusion of system/data disks;
 - automatic selection of **all** missions when a new USB drive appears;
 - persistent USB success/failure state, safe-removal state, and completion files;
-- non-blocking GPIO17 start/success/failure patterns, interruption/silencing,
+- non-blocking GPIO17 start/success/failure patterns, 10-second failure timeout,
+  interruption/silencing,
   and clean PWM cancellation through the deployed lgpio-compatible API;
 - authenticated UDP/serial touch parsing, sessions, sequence rejection, timeout,
   release behavior, authenticated coordinated poweroff, and operator-visible
@@ -71,7 +74,7 @@ This preserves elapsed time instead of playing the recording twice as fast.
 - Human-detection accuracy in intended lighting, range, and camera angles.
 - A real USB drive: all-mission copy, hash verification, automatic unmount,
   persistent completion/failure result, physical removal, failure behavior, and
-  the complete one-beep / repeating-triplet / continuous-warning sound sequence.
+  the complete one-beep / repeating-triplet / 10-second failure-warning sequence.
 - R005 monitor address/readings against a trusted multimeter and series ammeter,
   shunt/terminal temperature at peak load, and a full 2S discharge to calibrate
   the four thresholds.

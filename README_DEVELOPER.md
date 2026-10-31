@@ -87,16 +87,22 @@ It is intentionally not described as a precise state-of-charge gauge.
 ## USB result feedback
 
 `hardware.buzzer.Buzzer` owns GPIO17 from a dedicated thread. `USBMonitor` sends
-only state commands: one-shot start, repeating success triplet, continuous
-failure, or silence. No GPIO timing occurs on the camera/display or USB-copy
-threads. Physical removal silences success/failure; shutdown always drives the
-output low and releases the GPIO chip. The driver uses a zero-length `tx_pulse`
+only state commands: one-shot start, repeating success triplet, a bounded
+10-second failure warning, or silence. No GPIO timing occurs on the
+camera/display or USB-copy threads. Physical removal silences success; shutdown
+always drives the output low and releases the GPIO chip. The driver uses a zero-length `tx_pulse`
 to cancel PWM because the deployed lgpio build rejects `tx_pwm(..., 0, 0)`.
 
 `USBMonitor` also publishes active progress, safe-removal state, and a persistent
 last result. `DVPUI.status_banner()` gives temporary operator messages priority,
 then shows the persistent USB result. Successful exports carry
 `EXPORT_COMPLETE.txt` and `export_manifest.json` on the removable drive.
+
+The operator overlay deliberately has no USB button. Export remains automatic
+because the screen is disconnected before the shared connector accepts the
+pendrive. Storage deletion uses a paged list of completed mission folders;
+selection is by exact owned mission name and active/export-pinned missions are
+never removable.
 
 ## Product-facing text
 

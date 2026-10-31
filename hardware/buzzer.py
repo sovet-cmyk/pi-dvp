@@ -15,7 +15,8 @@ class Buzzer:
     FAILED = "failed"
 
     def __init__(self, enabled=None, gpio_module=None, *, beep_seconds=None,
-                 success_gap_seconds=None, success_repeat_seconds=None):
+                 success_gap_seconds=None, success_repeat_seconds=None,
+                 failure_seconds=None):
         self.enabled = config.BUZZER_ENABLED if enabled is None else enabled
         self.gpio_module = gpio_module
         self.pin = config.BUZZER_GPIO
@@ -29,6 +30,8 @@ class Buzzer:
         self.success_repeat_seconds = (config.BUZZER_SUCCESS_REPEAT_SECONDS
                                        if success_repeat_seconds is None
                                        else success_repeat_seconds)
+        self.failure_seconds = (config.BUZZER_FAILURE_SECONDS
+                                if failure_seconds is None else failure_seconds)
         self.condition = threading.Condition()
         self.mode = self.SILENT
         self.generation = 0
@@ -135,8 +138,10 @@ class Buzzer:
                     self._success_pattern(gpio, chip, generation)
                 elif mode == self.FAILED:
                     self._on(gpio, chip)
-                    self._wait_unchanged(generation)
+                    unchanged = self._wait_unchanged(generation, self.failure_seconds)
                     self._off(gpio, chip)
+                    if unchanged:
+                        self._set_silent_if_unchanged(generation)
         except Exception as exc:
             logger.warning("USB audible status unavailable: %s", exc)
         finally:

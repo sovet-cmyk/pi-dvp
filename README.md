@@ -1,6 +1,6 @@
 # DVP V3 Processing Unit
 
-Version **3.2.8** — 29 October 2026
+Version **3.2.9** — 31 October 2026
 
 This repository is the complete processing-unit package for DVP V3. It provides
 the live camera interface, raw/UI recording, motion detection, human detection,
@@ -37,10 +37,14 @@ shutdown surfaces use DVP naming only.
   Plymouth is disabled, and diagnostic records remain in the journal. The HDMI
   display stays black until DVP opens, while `Ctrl+Alt+F2` remains available for
   recovery. Physical header pins 8 and 10 are reserved for that serial console.
-- The transistor-driven sounder gives one beep when export starts, repeats three
-  beeps every five seconds after verified safe removal, and gives a continuous
-  warning tone after failure. Success/failure sound stops when the drive is
-  physically removed.
+- The transistor-driven sounder gives one beep when export starts and repeats
+  three beeps every five seconds after verified safe removal. A failed export
+  gives a warning tone for 10 seconds and then stops automatically. The success
+  signal stops when the drive is physically removed.
+- USB export is automatic. There is no on-screen USB button because the display
+  is disconnected before the shared connector is used for the pendrive.
+- The `S` storage screen lists completed recording sessions with date, time and
+  size. Select individual rows or `ALL`, then choose `DELETE` and confirm.
 
 ## Fresh installation from GitHub
 
@@ -234,8 +238,8 @@ Audible behavior:
 - export started: one short beep;
 - verified copy, sync and unmount completed: three short beeps, repeated every
   five seconds until the pendrive is physically removed;
-- export, verification or unmount failed: continuous tone until pendrive removal
-  or DVP shutdown.
+- export, verification or unmount failed: warning tone for 10 seconds, then
+  automatic silence.
 
 The display simultaneously shows export progress and retains one of these
 results at the top until the next export or reboot:
@@ -316,9 +320,21 @@ They are no longer shown to the operator. Maintenance metrics remain in
 | `M` | Motion toggle; green means enabled |
 | `H` | Human detection toggle; green means enabled/ready |
 | `RAW` / `UIR` | Raw-camera or UI-overlay recording; the top badge confirms `REC RAW` or `REC UI` |
-| `USB` | Manual USB fallback dialog |
-| `S` | Storage dialog |
+| `S` | Recording list; select individual sessions or all sessions for deletion |
 | `PWR` | Confirmed coordinated DVP shutdown |
+
+### Deleting selected recordings
+
+Tap `S` to open the completed-recording list. Four sessions are shown per page,
+newest first. Each row shows the recording number, completion date/time and
+approximate size. Tap a row to select or deselect it; selected rows show `[X]`.
+Use `<` and `>` for other pages. `ALL` selects every completed recording that
+is currently safe to delete. Tap `DELETE`, review the selected count, and tap
+`CONFIRM`. `BACK` leaves the screen without deleting anything.
+
+An active recording and any recording protected by an export are never
+selectable. Deletion is permanent. Export and verify important recordings before
+selecting them for deletion.
 
 ## Hotspot, recovery, and validation
 

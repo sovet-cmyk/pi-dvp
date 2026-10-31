@@ -15,7 +15,7 @@ MAX_SEQUENCE = 0xffffffff
 POWEROFF_REPEATS = 5
 POWEROFF_GAP_SECONDS = 0.04
 ALLOWED_COMMANDS = {'ZOOM_IN','ZOOM_OUT','UP','DOWN','LEFT','RIGHT','CENTER',
-                    'MOTION','HUMAN','UI','RECORD_MODE','USB','STORAGE','POWER'}
+                    'MOTION','HUMAN','UI','RECORD_MODE','STORAGE','POWER'}
 
 
 def parse_message(payload, shared_key=None, require_session=False):

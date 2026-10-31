@@ -33,7 +33,7 @@ def keyboard(key,touch):
     mapping={ord('+'):'ZOOM_IN',ord('='):'ZOOM_IN',ord('-'):'ZOOM_OUT',
              ord('w'):'UP',ord('s'):'DOWN',ord('a'):'LEFT',ord('d'):'RIGHT',
              ord('c'):'CENTER',ord('h'):'HUMAN',ord('m'):'MOTION',ord('p'):'POWER',
-             ord('u'):'UI',ord('r'):'RECORD_MODE',ord('e'):'USB',ord('f'):'STORAGE'}
+             ord('u'):'UI',ord('r'):'RECORD_MODE',ord('f'):'STORAGE'}
     if key in mapping:
         touch.execute(mapping[key])
 

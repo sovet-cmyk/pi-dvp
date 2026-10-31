@@ -125,17 +125,31 @@ class TouchHandler:
             state.record_mode='ui' if state.record_mode=='raw' else 'raw'
             self.app.recorder.boundary()
             notify('RECORDING WITH UI' if state.record_mode=='ui' else 'RECORDING RAW CAMERA',5)
-        elif command=='USB':
-            state.dialog='usb'
         elif command=='STORAGE':
+            self.app.storage.refresh_items()
+            state.storage_page=0
             state.dialog='storage'
-        elif command=='DELETE_REQUEST':
-            state.dialog='delete'
-        elif command=='DELETE_CONFIRM':
-            self.app.storage.request_delete_oldest()
+        elif command.startswith('STORAGE_ITEM_'):
+            name=command[len('STORAGE_ITEM_'):]
+            item=next((item for item in state.storage_items if item['name']==name),None)
+            if item and not item.get('protected'):
+                if name in state.storage_selected:
+                    state.storage_selected.remove(name)
+                else:
+                    state.storage_selected.add(name)
+        elif command=='STORAGE_SELECT_ALL':
+            available={item['name'] for item in state.storage_items if not item.get('protected')}
+            state.storage_selected = set() if available and available<=state.storage_selected else available
+        elif command=='STORAGE_PREV':
+            state.storage_page=max(0,state.storage_page-1)
+        elif command=='STORAGE_NEXT':
+            pages=max(1,(len(state.storage_items)+3)//4)
+            state.storage_page=min(pages-1,state.storage_page+1)
+        elif command=='STORAGE_DELETE':
+            if state.storage_selected:
+                state.dialog='delete_confirm'
+            else:
+                notify('SELECT AT LEAST ONE RECORDING',4)
+        elif command=='DELETE_SELECTED_CONFIRM':
+            self.app.storage.request_delete_selected(set(state.storage_selected))
             state.dialog=''
-        elif command in ('EXPORT_LATEST','EXPORT_ALL','EJECT'):
-            self.app.usb.request({'EXPORT_LATEST':'latest','EXPORT_ALL':'all','EJECT':'eject'}[command])
-        elif command=='EXPORT_CANCEL':
-            state.export_cancel=True
-            notify('CANCELLING USB EXPORT',5)
